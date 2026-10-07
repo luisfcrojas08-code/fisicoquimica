@@ -268,6 +268,13 @@ svg.vle .hd{fill:#0F2629;stroke:#F2B544;stroke-width:3;pointer-events:none}
 .demobar .dbtns{display:flex;gap:6px;flex:none}
 .demobar button.alt{background:transparent;color:#1b1402;border:1.5px solid #1b1402}
 .shell>*,.p1>*,#p1body>*,.card>*,.calc>*,.opts>*,.howto>*,.vlew>*{min-width:0}
+.viewnav{display:flex;justify-content:flex-start}
+.viewnav .btn{padding:10px 14px;font-size:14px}
+.viewnav.on{display:grid;gap:10px;background:var(--amber);color:#1b1402;border-radius:18px;padding:14px 16px}
+.viewnav.on p{margin:0;font-size:14.5px}
+.viewnav .vbtns{display:flex;flex-wrap:wrap;gap:8px}
+.viewnav.on .btn.soft{background:#fff;border-color:#1b1402}
+.viewnav.on .btn.primary{box-shadow:none}
 .roster{display:grid;gap:8px;max-height:460px;overflow:auto;padding-right:2px}
 .rrow{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:14px;color:#fff;animation:pop .4s cubic-bezier(.3,1.6,.5,1) both}
 .rrow .pi{width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.22);display:grid;place-items:center;flex:none}
@@ -1214,7 +1221,7 @@ svg.molv{position:relative;display:block;width:100%;height:auto}
   function setStep(st){ P.step = st; if (st === 'build' && !P.startedAt) P.startedAt = new Date().toISOString(); saveP(); renderP1(true); window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' }); }
   function addPts(n, from){
     if (!n) return;
-    P.pts += n; { const tot = totalPts(); if (tot < 0) P.pts -= tot; }
+    P.pts += n;
     const sc = $('#p1score'); if (sc) { sc.textContent = '★ ' + totalPts(); sc.classList.remove('bump'); void sc.offsetWidth; sc.classList.add('bump'); }
     if (from && !reduce) {
       const r = from.getBoundingClientRect(), f = document.createElement('div');
@@ -1279,8 +1286,8 @@ svg.molv{position:relative;display:block;width:100%;height:auto}
       const v = num(inp.value);
       if (!isFinite(v)) { fb.className = 'fb err'; fb.textContent = 'Escriban un número (con coma o punto).'; return; }
       const t = P.tries[key] || 0;
-      if (Math.abs(v - answer) <= Math.abs(answer) * tol) { P.done[key] = 'ok'; addPts([100, 70, 40, 20][Math.min(t, 3)], btn); finish('ok'); burst(btn); saveP(); onDone && safe(onDone); return; }
-      P.tries[key] = t + 1; loseLife();
+      if (Math.abs(v - answer) <= Math.abs(answer) * tol) { P.done[key] = 'ok'; addPts(100, btn); finish('ok'); burst(btn); saveP(); onDone && safe(onDone); return; }
+      P.tries[key] = t + 1; loseLife(); addPts(-30, btn);
       w.classList.remove('bad'); void w.offsetWidth; w.classList.add('bad');
       if (P.lives <= 0) { P.done[key] = 'rev'; finish('rev'); saveP(); onDone && safe(onDone); return; }
       fb.className = 'fb err'; fb.textContent = 'No coincide. ' + (P.lives === 1 ? 'Les queda 1 vida.' : 'Les quedan ' + P.lives + ' vidas.');
@@ -1309,11 +1316,11 @@ svg.molv{position:relative;display:block;width:100%;height:auto}
         if (right.includes(L) || !retry) {
           P.picks[key] = L;
           if (noPts) { if (right.includes(L)) burst(b); }
-          else if ((right[0] === L || equal) && !picked.length) { addPts(retry ? 100 : 150, b); burst(b); }
+          else if (right[0] === L || equal) { addPts(retry ? 100 : 150, b); burst(b); }
           else if (right.includes(L)) addPts(retry ? 40 : 60, b);
           saveP(); renderP1(false); return;
         }
-        P.picks[key + '_try'] = picked.concat(L); if (!noPts) loseLife(); saveP(); renderP1(false);
+        P.picks[key + '_try'] = picked.concat(L); if (!noPts) { loseLife(); addPts(-30, b); } saveP(); renderP1(false);
       };
       w.append(b);
     });
@@ -1352,7 +1359,50 @@ svg.molv{position:relative;display:block;width:100%;height:auto}
     let seen = false;
     unsub = db.doc(PEOPLE(S.code) + '/' + myId()).onSnapshot(d => { if (d.exists) { seen = true; return; } if (seen && !(d.metadata && d.metadata.hasPendingWrites)) resetStudent('El docente te retiró de la sala. Puedes volver a entrar.'); }, () => {});
   }
-  function renderP1(animate){ try { narrowPeople(); renderP1_(animate); } catch (e) { showGlitch(e); } }
+  /* revisar pasos anteriores de la fase actual, sin poder cambiar nada */
+  let VIEW = null;
+  const curSteps = () => PH === 1 ? STEPS1 : LITE() ? (PH === 2 ? STEPSD : PH === 3 ? STEPS2 : STEPSL4) : (PH === 2 ? STEPS2 : PH === 3 ? STEPS3 : STEPS4);
+  const stepIdx = st => curSteps().findIndex(x => x[0] === st);
+  const viewStep = () => { if (!VIEW || ENDED || VIEW.ph !== PH) return null; const vi = stepIdx(VIEW.step), ri = stepIdx(P.step); return vi >= 0 && vi < ri ? VIEW.step : null; };
+  function viewMove(d){
+    const steps = curSteps(), ri = stepIdx(P.step), cur = viewStep(), vi = cur ? stepIdx(cur) : ri, ni = vi + d;
+    if (ni < 0) return;
+    VIEW = ni >= ri ? null : { ph: PH, step: steps[ni][0] };
+    renderP1(true); window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
+  }
+  function viewNav(v){
+    const root = $('#p1body'); if (!root || ENDED) return;
+    const steps = curSteps(), ri = stepIdx(P.step);
+    if (ri <= 0) return;
+    const bar = el('div', 'viewnav' + (v ? ' on' : ''));
+    if (v) {
+      const vi = stepIdx(v);
+      bar.innerHTML = '<p><b>Están revisando un paso anterior</b> (' + (vi + 1) + ' de ' + steps.length + '). Aquí no se puede cambiar nada.</p><div class="vbtns"></div>';
+      const bx = bar.querySelector('.vbtns');
+      const mk = (t, fn, cls, dis) => { const b = el('button', 'btn ' + cls); b.type = 'button'; b.textContent = t; b.disabled = !!dis; b.onclick = fn; bx.append(b); };
+      mk('← Anterior', () => viewMove(-1), 'soft', vi === 0); mk('Siguiente →', () => viewMove(1), 'soft'); mk('Volver a donde íbamos', () => { VIEW = null; renderP1(true); window.scrollTo({ top: 0 }); }, 'primary');
+    } else {
+      const b = el('button', 'btn soft'); b.type = 'button'; b.textContent = '← Revisar el paso anterior'; b.onclick = () => viewMove(-1); bar.append(b);
+    }
+    root.prepend(bar);
+  }
+  $('#p1body').addEventListener('click', e => {
+    if (!viewStep()) return;
+    const b = e.target.closest ? e.target.closest('button, input, select, a') : null;
+    if (!b || b.closest('.viewnav')) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    if (b.matches('button.btn.primary.wide')) viewMove(1);
+  }, true);
+  function renderP1(animate){
+    try {
+      narrowPeople();
+      const real = P.step, v = viewStep();
+      if (!v) VIEW = null;
+      if (v) P.step = v;
+      try { renderP1_(animate); } finally { P.step = real; }
+      viewNav(v);
+    } catch (e) { showGlitch(e); }
+  }
   let ENDED = null;
   function renderEnd(){
     const root = $('#p1body'); if (!root) return;
@@ -1393,7 +1443,7 @@ svg.molv{position:relative;display:block;width:100%;height:auto}
         const d = el('div', 'pat'); d.innerHTML = molSVG(c.split(''), undefined, true) + '<div class="pn"><b></b><span>En el mercado</span></div>'; d.querySelector('b').textContent = n; pat.append(d);
       });
       card.append(pat);
-      card.append(situation('Reglas', '<ul><li>Tienen <b>3 vidas</b> en esta fase. Cada respuesta incorrecta gasta una.</li><li>Cada pregunta vale <b>100 puntos</b> al primer intento. El puntaje disminuye con cada intento adicional.</li><li>Después del primer intento fallido pueden pedir una <b>pista por 30 puntos</b>: les dice qué ecuación usar.</li><li>Trabajen con <b>4 cifras significativas</b> en los pasos intermedios y redondeen solo el resultado final.</li>' + (LITE() ? '' : '<li>Al final, el docente revisa sus cálculos y aprueba el paso a la Fase 2.</li>') + '</ul>'));
+      card.append(situation('Reglas', '<ul><li>Cada respuesta correcta suma <b>100 puntos</b>.</li><li>Cada respuesta incorrecta <b>resta 30 puntos</b> y gasta una de sus <b>3 vidas</b> de la fase. El puntaje puede quedar en negativo.</li><li>Después del primer intento fallido pueden pedir una <b>pista por 30 puntos</b>: les dice qué ecuación usar.</li><li>Trabajen con <b>4 cifras significativas</b> en los pasos intermedios y redondeen solo el resultado final.</li>' + (LITE() ? '' : '<li>Al final, el docente revisa sus cálculos y aprueba el paso a la Fase 2.</li>') + '</ul>'));
       next('Empezar el diseño →', () => setStep('build'));
     }
 
@@ -1655,7 +1705,7 @@ svg.molv{position:relative;display:block;width:100%;height:auto}
       if (f.nNaCl > 0) rows.push(['NaCl formado en la neutralización', fmt(f.nNaCl / 1000, 6) + ' mol']);
       card.append(el('div', 'q', '<b>Su lote hasta ahora</b>'));
       card.append(dataTable(rows));
-      card.append(situation('Reglas', '<ul><li>Tienen <b>3 vidas</b> en esta fase. Cada respuesta incorrecta gasta una.</li><li>Cada pregunta vale <b>100 puntos</b> al primer intento. El puntaje disminuye con cada intento adicional.</li><li>Después del primer intento fallido pueden pedir una <b>pista por 30 puntos</b>: les dice qué ecuación usar.</li><li>Trabajen con <b>4 cifras significativas</b> en los pasos intermedios y redondeen solo el resultado final.</li>' + '</ul>'));
+      card.append(situation('Reglas', '<ul><li>Cada respuesta correcta suma <b>100 puntos</b>.</li><li>Cada respuesta incorrecta <b>resta 30 puntos</b> y gasta una de sus <b>3 vidas</b> de la fase. El puntaje puede quedar en negativo.</li><li>Después del primer intento fallido pueden pedir una <b>pista por 30 puntos</b>: les dice qué ecuación usar.</li><li>Trabajen con <b>4 cifras significativas</b> en los pasos intermedios y redondeen solo el resultado final.</li>' + '</ul>'));
       next('Empezar →', () => go2('vol'));
     }
 
@@ -1824,7 +1874,7 @@ svg.molv{position:relative;display:block;width:100%;height:auto}
       head('Fase 3 · La presentación', '¿Cómo llega su lote al consultorio?', null);
       card.append(situation('La situación', '<p>Su lote isotónico está listo. Ahora deben decidir <b>en qué envase va</b>, <b>cómo se esteriliza</b> y <b>qué aditivos lleva</b>. Cada decisión tiene consecuencias en el control de calidad final.</p>'));
       card.append(dataTable([['Su principio activo', f.name], ['Excipiente de tonicidad', AGENTS[f.agt].name], ['Volumen final del lote', 'el que calcularon en el paso 6 de la Fase 2 (' + fmt(X.VmLf, 1) + ' mL)']]));
-      card.append(situation('Reglas', '<ul><li>Tienen <b>3 vidas</b> en esta fase. Cada respuesta incorrecta gasta una.</li><li>Cada pregunta vale <b>100 puntos</b> al primer intento. El puntaje disminuye con cada intento adicional.</li><li>Después del primer intento fallido pueden pedir una <b>pista por 30 puntos</b>: les dice qué ecuación usar.</li><li>Trabajen con <b>4 cifras significativas</b> en los pasos intermedios y redondeen solo el resultado final.</li>' + '</ul>'));
+      card.append(situation('Reglas', '<ul><li>Cada respuesta correcta suma <b>100 puntos</b>.</li><li>Cada respuesta incorrecta <b>resta 30 puntos</b> y gasta una de sus <b>3 vidas</b> de la fase. El puntaje puede quedar en negativo.</li><li>Después del primer intento fallido pueden pedir una <b>pista por 30 puntos</b>: les dice qué ecuación usar.</li><li>Trabajen con <b>4 cifras significativas</b> en los pasos intermedios y redondeen solo el resultado final.</li>' + '</ul>'));
       next('Empezar →', () => go3('env'));
     }
 
@@ -2002,7 +2052,7 @@ svg.molv{position:relative;display:block;width:100%;height:auto}
       head('Fase 4 · Control de calidad', '¿Su lote sale al mercado?', null);
       card.append(situation('La situación', '<p>Su presentación está lista. Antes de venderla, el lote debe pasar el <b>control de calidad</b>, llegar bien a la clínica y cumplir lo que dice su etiqueta. Cada resultado de esta fase depende de lo que ustedes decidieron en las fases anteriores.</p>'));
       card.append(dataTable([['Su principio activo', f.name], ['Excipiente de tonicidad', agent], ['Presentación', e.long], ['Volumen final del lote', Vtxt]]));
-      card.append(situation('Reglas', '<ul><li>Tienen <b>3 vidas</b> en esta fase. Cada respuesta incorrecta gasta una.</li><li>Cada pregunta vale <b>100 puntos</b> al primer intento. El puntaje disminuye con cada intento adicional.</li><li>Después del primer intento fallido pueden pedir una <b>pista por 30 puntos</b>: les dice qué ecuación usar.</li><li>Trabajen con <b>4 cifras significativas</b> en los pasos intermedios y redondeen solo el resultado final.</li>' + '</ul>'));
+      card.append(situation('Reglas', '<ul><li>Cada respuesta correcta suma <b>100 puntos</b>.</li><li>Cada respuesta incorrecta <b>resta 30 puntos</b> y gasta una de sus <b>3 vidas</b> de la fase. El puntaje puede quedar en negativo.</li><li>Después del primer intento fallido pueden pedir una <b>pista por 30 puntos</b>: les dice qué ecuación usar.</li><li>Trabajen con <b>4 cifras significativas</b> en los pasos intermedios y redondeen solo el resultado final.</li>' + '</ul>'));
       next('Empezar →', () => go4('osm'));
     }
 
@@ -2225,7 +2275,7 @@ svg.molv{position:relative;display:block;width:100%;height:auto}
       head('Fase 2 · Recuperar el etanol', 'No boten el disolvente', null);
       card.append(situation('La situación', '<p>Para fabricar su ' + f.name.toLowerCase() + ' usaron etanol como disolvente. Al terminar la síntesis les quedó una mezcla de <b>etanol y agua</b>. El etanol es caro y no se puede botar por el desagüe: la startup quiere <b>recuperarlo por destilación</b> para volver a usarlo.</p>'));
       card.append(dataTable([['Mezcla que quedó de la síntesis', '10,0 mol en total'], ['Fracción molar de etanol en la mezcla', '0,300 (30,0 % molar)'], ['Presión de la planta', '760 Torr (1 atm)']]));
-      card.append(situation('Reglas', '<ul><li>Tienen <b>3 vidas</b> en esta fase. Cada respuesta incorrecta gasta una.</li><li>Cada pregunta vale <b>100 puntos</b> al primer intento. El puntaje disminuye con cada intento adicional.</li><li>Después del primer intento fallido pueden pedir una <b>pista por 30 puntos</b>: les dice qué ecuación usar.</li><li>Trabajen con <b>4 cifras significativas</b> en los pasos intermedios y redondeen solo el resultado final.</li>' + '</ul>'));
+      card.append(situation('Reglas', '<ul><li>Cada respuesta correcta suma <b>100 puntos</b>.</li><li>Cada respuesta incorrecta <b>resta 30 puntos</b> y gasta una de sus <b>3 vidas</b> de la fase. El puntaje puede quedar en negativo.</li><li>Después del primer intento fallido pueden pedir una <b>pista por 30 puntos</b>: les dice qué ecuación usar.</li><li>Trabajen con <b>4 cifras significativas</b> en los pasos intermedios y redondeen solo el resultado final.</li>' + '</ul>'));
       next('Empezar →', () => goD('rao'));
     }
 
@@ -2336,7 +2386,7 @@ svg.molv{position:relative;display:block;width:100%;height:auto}
       head('Fase 4 · Presentación y control', '¿Su lote sale al mercado?', null);
       card.append(situation('La situación', '<p>Su lote de ' + f.name.toLowerCase() + ' ya es isotónico. Falta decidir <b>en qué envase va y cómo se esteriliza</b>, pasar el <b>control de calidad</b> y llegar bien a la clínica. Cada resultado depende de lo que ustedes decidieron antes.</p>'));
       card.append(dataTable([['Su principio activo', f.name + ' ' + (f.big ? '0,5 %' : '2,0 %') + ' p/v'], ['Unión de su molécula', ester ? 'éster' : 'amida'], ['Excipiente de tonicidad', agent], ['Descenso crioscópico del lote', '0,52 °C']]));
-      card.append(situation('Reglas', '<ul><li>Tienen <b>3 vidas</b> en esta fase. Cada respuesta incorrecta gasta una.</li><li>Cada pregunta vale <b>100 puntos</b> al primer intento. El puntaje disminuye con cada intento adicional.</li><li>Después del primer intento fallido pueden pedir una <b>pista por 30 puntos</b>: les dice qué ecuación usar.</li><li>Trabajen con <b>4 cifras significativas</b> en los pasos intermedios y redondeen solo el resultado final.</li>' + '</ul>'));
+      card.append(situation('Reglas', '<ul><li>Cada respuesta correcta suma <b>100 puntos</b>.</li><li>Cada respuesta incorrecta <b>resta 30 puntos</b> y gasta una de sus <b>3 vidas</b> de la fase. El puntaje puede quedar en negativo.</li><li>Después del primer intento fallido pueden pedir una <b>pista por 30 puntos</b>: les dice qué ecuación usar.</li><li>Trabajen con <b>4 cifras significativas</b> en los pasos intermedios y redondeen solo el resultado final.</li>' + '</ul>'));
       next('Empezar →', () => go4('env'));
     }
 
