@@ -695,7 +695,7 @@ svg.molv{position:relative;display:block;width:100%;height:auto}
           <div style="display:grid;gap:6px"><span class="kicker">Clase terminada</span><h2>Bonificación para el parcial</h2></div>
           <button class="btn primary" id="tXls" type="button">Descargar Excel</button>
         </div>
-        <p class="note" id="tResNote">Máximo 3 puntos (+0,3). 85 % o más: 3 · 60–84 %: 2 · 35–59 %: 1.</p>
+        <p class="note" id="tResNote">Máximo 4 puntos (+0,4). 85 % o más: 4 · 65–84 %: 3 · 45–64 %: 2 · 25–44 %: 1.</p>
         <div class="reswrap"><table class="restable"><thead><tr><th>Grupo</th><th>Integrantes</th><th>Fases</th><th>% puntaje</th><th>Bonificación</th></tr></thead><tbody id="tResBody"></tbody></table></div>
         <button class="btn link" id="tReopen" type="button">Reabrir la clase (si la terminaste por error)</button>
       </div>
@@ -1415,9 +1415,9 @@ svg.molv{position:relative;display:block;width:100%;height:auto}
     if (!b) { h.querySelector('h2').textContent = 'El docente terminó la clase'; h.querySelector('.sub').textContent = 'Tu bonificación la tiene el docente.'; return; }
     h.querySelector('h2').textContent = b.b > 0 ? '+' + b.b + (b.b === 1 ? ' punto' : ' puntos') + ' al parcial' : 'Sin bonificación esta vez';
     h.querySelector('.sub').textContent = b.b > 0 ? 'Equivale a +0,' + b.b + ' en la nota del parcial.' : 'Sigan practicando: el parcial evalúa estos mismos temas.';
-    const big = el('div', 'bono'); big.innerHTML = '<b></b><span>de 3</span>'; big.querySelector('b').textContent = '+' + b.b; card.append(big);
+    const big = el('div', 'bono'); big.innerHTML = '<b></b><span>de 4</span>'; big.querySelector('b').textContent = '+' + b.b; card.append(big);
     card.append(dataTable([['Fases terminadas', b.fases + ' de 4'], ['Fase 1 · Fase 2', b.ph[0] + ' % · ' + b.ph[1] + ' %'], ['Fase 3 · Fase 4', b.ph[2] + ' % · ' + b.ph[3] + ' %'], ['Puntaje total', b.pct + ' % del máximo']]));
-    card.append(situation('Cómo se calculó', '<p>Cada fase vale lo mismo. En cada una cuenta el porcentaje de puntos que obtuvieron frente al máximo posible; las fases que no alcanzaron valen 0.</p><ul><li>85 % o más: 3 puntos</li><li>60 – 84 %: 2 puntos</li><li>35 – 59 %: 1 punto</li></ul>'));
+    card.append(situation('Cómo se calculó', '<p>Cada fase vale lo mismo. En cada una cuenta el porcentaje de puntos que obtuvieron frente al máximo posible; las fases que no alcanzaron valen 0.</p><ul><li>85 % o más: 4 puntos (+0,4)</li><li>65 – 84 %: 3 puntos (+0,3)</li><li>45 – 64 %: 2 puntos (+0,2)</li><li>25 – 44 %: 1 punto (+0,1)</li></ul>'));
     if (b.b > 0 && !renderEnd.done) { renderEnd.done = 1; burst(big); }
   }
   function renderP1_(animate){
@@ -1724,7 +1724,7 @@ svg.molv{position:relative;display:block;width:100%;height:auto}
       const T = f.big ? { g: 3.279, rho: 1.006 } : { g: 2.728, rho: 1.005 };
       const nT = T.g / f.salt, solv = (100.0 * T.rho - T.g) / 1000, mT = nT / solv;
       const dT = +(KC * I_SALT * mT).toFixed(3);
-      card.append(dataTable([['Clorhidrato pesado', fmt(T.g, 3) + ' g'], ['Volumen de aforo', '100,0 mL'], ['Densidad de la solución', fmt(T.rho, 3) + ' g/mL'], ['Temperatura de congelación', '−' + fmt(dT, 3) + ' °C'], ['Kc del agua', '1,86 °C·kg/mol']]));
+      card.append(dataTable([['Clorhidrato pesado', fmt(T.g, 3) + ' g'], ['Masa molar de su clorhidrato', fmt(f.salt) + ' g/mol'], ['Volumen de aforo', '100,0 mL'], ['Densidad de la solución', fmt(T.rho, 3) + ' g/mL'], ['Temperatura de congelación', '−' + fmt(dT, 3) + ' °C'], ['Kc del agua', '1,86 °C·kg/mol']]));
       card.append(calcWidget('irr', { q: 'Calculen el factor de van \'t Hoff real de su clorhidrato', unit: 'i', answer: dT / (KC * mT), tol: .015, digits: 2, hint: 'Usen ΔTc = i · Kc · m y despejen i. La molalidad va por kg de agua: masa de agua = (volumen × densidad) − masa de clorhidrato.' }, () => {
         if (lite) { if (!card.querySelector('#goEst')) next('Seguir →', () => go2('est'), 'goEst'); return; }
         if (card.querySelector('.opts')) return;
@@ -1789,7 +1789,7 @@ svg.molv{position:relative;display:block;width:100%;height:auto}
       const a6 = AGENTS[P.picks.agt] || AGENTS.C;
       head('Paso 6 · Comprobación', 'Presión osmótica del lote terminado', null);
       card.append(situation('Situación', '<p>Su lote ya quedó con un descenso crioscópico de <b>0,52 °C</b>. Para el certificado de calidad deben reportar su presión osmótica a temperatura corporal.</p><p>Ojo: la presión osmótica usa la concentración por <b>litro de solución</b>, no por kilogramo de agua. Al agregar el excipiente, el lote cambió de masa y de volumen.</p>'));
-      card.append(dataTable((lite ? [['Masa de agua de su lote', fmt(L.W * 1000, 1) + ' g']] : []).concat([['Descenso crioscópico del lote', '0,52 °C'], [a6.name + ' agregado', fmt(L.g, 3) + ' g'], ['Densidad final del lote', fmt(L.rhoF, 4) + ' g/mL'], ['Kc del agua', '1,86 °C·kg/mol'], ['R', '0,08206 atm·L/mol·K'], ['Temperatura corporal', '310,15 K']])));
+      card.append(dataTable((lite ? [['Masa de agua de su lote', fmt(L.W * 1000, 1) + ' g'], ['Masa del lote antes de agregar el excipiente', fmt(L.msol, 1) + ' g']] : []).concat([['Descenso crioscópico del lote', '0,52 °C'], [a6.name + ' agregado', fmt(L.g, 3) + ' g'], ['Densidad final del lote', fmt(L.rhoF, 4) + ' g/mL'], ['Kc del agua', '1,86 °C·kg/mol'], ['R', '0,08206 atm·L/mol·K'], ['Temperatura corporal', '310,15 K']])));
       card.append(calcWidget('pi', { q: '¿Cuál es la presión osmótica del lote a 37 °C?', unit: 'atm', answer: L.Pi, tol: .015, digits: 3, hint: 'Usen Π = c · R · T, con c en moles de partículas por litro de lote. Moles de partículas = (0,52 ÷ Kc) × kg de agua. Volumen final = masa total del lote ÷ densidad final.' }, () => {
         if (!card.querySelector('#goChk2')) next('Ver la ficha del lote →', () => { P.doneAt = new Date().toISOString(); go2('chk2'); }, 'goChk2');
       }));
@@ -2683,7 +2683,7 @@ svg.molv{position:relative;display:block;width:100%;height:auto}
       ph.push(Math.round(Math.max(0, Math.min(1, (f.pts || 0) / max)) * 100));
     });
     const pct = Math.round(ph.reduce((a, v) => a + v, 0) / 4);
-    const b = pct >= 85 ? 3 : pct >= 60 ? 2 : pct >= 35 ? 1 : 0;
+    const b = pct >= 85 ? 4 : pct >= 65 ? 3 : pct >= 45 ? 2 : pct >= 25 ? 1 : 0;
     return { b, pct, fases, ph };
   }
   function renderResults(){
@@ -2703,7 +2703,7 @@ svg.molv{position:relative;display:block;width:100%;height:auto}
       tr.children[4].querySelector('span').textContent = '(+0,' + r.b + ')';
       tb.append(tr);
     });
-    if (tRoom.terminada) $('#tResNote').textContent = 'Terminada a las ' + new Date(tRoom.terminada).toLocaleTimeString('es-CO', {hour: '2-digit', minute: '2-digit', hourCycle: 'h23'}) + '. Máximo 3 puntos (+0,3). 85 % o más: 3 · 60–84 %: 2 · 35–59 %: 1.';
+    if (tRoom.terminada) $('#tResNote').textContent = 'Terminada a las ' + new Date(tRoom.terminada).toLocaleTimeString('es-CO', {hour: '2-digit', minute: '2-digit', hourCycle: 'h23'}) + '. Máximo 4 puntos (+0,4). 85 % o más: 4 · 65–84 %: 3 · 45–64 %: 2 · 25–44 %: 1.';
   }
   $('#tEnd').onclick = () => { $('#tEnd').hidden = true; $('#tEndConfirm').hidden = false; };
   $('#tEndNo').onclick = () => { $('#tEnd').hidden = false; $('#tEndConfirm').hidden = true; };
