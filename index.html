@@ -267,6 +267,14 @@ svg.vle .hd{fill:#0F2629;stroke:#F2B544;stroke-width:3;pointer-events:none}
 .demolinks button:hover,.demolinks button:focus-visible{background:rgba(255,255,255,.14);outline:none;border-color:var(--amber)}
 .demobar .dbtns{display:flex;gap:6px;flex:none}
 .demobar button.alt{background:transparent;color:#1b1402;border:1.5px solid #1b1402}
+.demobar.prac{background:var(--accent);color:#fff}
+.demobar.prac button{background:#fff;color:var(--accent-2)}
+.orcode{display:grid;gap:10px;border-top:1px solid var(--line);padding-top:16px;margin-top:4px}
+.orcode .sub{font-size:14px}
+.practab{width:100%;border-collapse:collapse;font-size:14px}
+.practab th,.practab td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+.practab th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-2)}
+.practab td.fin{color:var(--ok);font-weight:800}
 .shell>*,.p1>*,#p1body>*,.card>*,.calc>*,.opts>*,.howto>*,.vlew>*{min-width:0}
 .viewnav{display:flex;justify-content:flex-start}
 .viewnav .btn{padding:10px 14px;font-size:14px}
@@ -580,15 +588,23 @@ svg.molv{position:relative;display:block;width:100%;height:auto}
 
   <!-- STEP 1: class code -->
   <div id="demoBar" class="demobar" hidden><span>Modo prueba · las respuestas ya están puestas, solo avanza</span><div class="dbtns"><button type="button" class="alt" id="demoSwap">Ver la extendida</button><button type="button" id="demoExit">Salir</button></div></div>
+  <div id="pracBar" class="demobar prac" hidden><span>Práctica libre</span><div class="dbtns"><button type="button" id="pracRestart">Empezar de nuevo</button></div></div>
   <section class="card enter" id="stepCode" aria-labelledby="t1">
     <div style="display:grid;gap:8px">
-      <span class="kicker">Paso 1 de 3</span>
-      <h1 id="t1">Código de la clase</h1>
-      <p class="sub">Escríbelo tal como aparece en el tablero.</p>
+      <span class="kicker">Práctica libre</span>
+      <h1 id="t1">Practica por tu cuenta</h1>
+      <p class="sub">Escribe tu nombre y empieza. Tu avance queda guardado en este dispositivo: si cierras la página, sigues donde ibas.</p>
     </div>
+    <div class="field"><label for="pracName">Tu nombre</label><input class="txt" id="pracName" maxlength="40" autocomplete="off" placeholder="Nombre y apellido"></div>
+    <p class="err" id="errPrac" role="alert"></p>
+    <button class="btn primary wide" id="goPrac" type="button" disabled>Empezar a practicar</button>
+    <div class="orcode">
+      <span class="kicker">¿Tu docente te dio un código de clase?</span>
+      <p class="sub">Escríbelo aquí tal como aparece en el tablero.</p>
     <div class="pin" id="pinBox"><input id="code" maxlength="8" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="COLIG3" aria-label="Código de la clase"></div>
     <p class="err" id="errCode" role="alert"></p>
     <button class="btn primary wide" id="goCode" type="button" disabled>Entrar</button>
+    </div>
   </section>
 
   <!-- STEP 2: mode + details -->
@@ -801,6 +817,14 @@ svg.molv{position:relative;display:block;width:100%;height:auto}
         <div id="tPod" hidden></div>
       </div>
     </div>
+    <div class="card enter" id="tPracCard">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+        <div style="display:grid;gap:6px"><span class="kicker">Práctica libre</span><h2>Quién ha practicado</h2></div>
+        <button class="btn soft" id="tPracBtn" type="button">Ver la lista</button>
+      </div>
+      <p class="note" id="tPracNote">Los estudiantes entran a la página, escriben su nombre y practican sin código. Aquí ves quién entró y hasta dónde llegó. La lista se lee solo cuando tocas el botón.</p>
+      <div id="tPracList" hidden></div>
+    </div>
     <div class="demolinks"><span>Modo prueba con respuestas (solo tú lo ves)</span><button type="button" id="demoLiteBtn">Probar la versión Lite</button><button type="button" id="demoExtBtn">Probar la versión Extendida</button></div>
   </section>
 
@@ -898,7 +922,7 @@ svg.molv{position:relative;display:block;width:100%;height:auto}
   const S = { code:'', mode:'', solo:'', gname:'', members:[], color:COLORS[0], icon:'matraz' };
   const KEY = 'farmacaina-ingreso';
   try { Object.assign(S, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) {}
-  let DEMO = false;
+  let DEMO = false, PRAC = false;
   const save = () => { if (DEMO) return; try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
   const normCode = v => v.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
   const slug = s => s.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40) || 'sin-nombre';
@@ -929,7 +953,7 @@ svg.molv{position:relative;display:block;width:100%;height:auto}
     const fs = fb.firestore();
     const wrap = ref => ({ id: ref.id, get: () => ref.get(), set: o => ref.set(o), delete: () => ref.delete(), onSnapshot: (a, b) => ref.onSnapshot(a, b),
       update: o => { const args = []; Object.keys(o).forEach(k => { const v = o[k]; if (/^aprobados/.test(k) && v && typeof v === 'object') Object.keys(v).forEach(id => args.push(new fb.firestore.FieldPath(k, id), v[id])); else args.push(new fb.firestore.FieldPath(k), v); }); return ref.update(...args); } });
-    return { doc: p => wrap(fs.doc(p)), collection: p => { const c = fs.collection(p); return { doc: id => wrap(c.doc(id)), orderBy: f => c.orderBy(f), onSnapshot: (a, b) => c.onSnapshot(a, b) }; } };
+    return { doc: p => wrap(fs.doc(p)), collection: p => { const c = fs.collection(p); return { doc: id => wrap(c.doc(id)), orderBy: f => c.orderBy(f), onSnapshot: (a, b) => c.onSnapshot(a, b), get: () => c.get() }; } };
   }
   const dbReady = IN_CLAUDE ? window.claude.use('db').then(x => (db = x)).catch(() => null) : initFirebase().then(x => (db = x)).catch(e => { try { console.error(e); } catch (_) {} return null; });
   const ROOM = c => 'control/salas/lista/' + c;          // teacher-only writes (rule)
@@ -1313,6 +1337,7 @@ svg.molv{position:relative;display:block;width:100%;height:auto}
   }
   function saveP(){
     try { if (PH === 4) S.f4 = P; else if (PH === 3) S.f3 = P; else if (PH === 2) S.f2 = P; else S.f1 = P; save(); } catch (e) {}
+    if (PRAC) { try { pracLog(); } catch (e) {} }
     // write in the background, one at a time, never blocking the screen
     setTimeout(pushP, 0);
   }
@@ -1521,13 +1546,15 @@ svg.molv{position:relative;display:block;width:100%;height:auto}
     root.innerHTML = '';
     const card = el('div', 'card enter'); root.append(card);
     const h = el('div'); h.style.cssText = 'display:grid;gap:6px'; h.innerHTML = '<span class="kicker">Fin de la actividad</span><h2></h2><p class="sub"></p>'; card.append(h);
-    if (!b) { h.querySelector('h2').textContent = 'El docente terminó la clase'; h.querySelector('.sub').textContent = 'Tu bonificación la tiene el docente.'; return; }
+    const toPrac = () => { const pb = el('button', 'btn primary wide'); pb.type = 'button'; pb.id = 'endToPrac'; pb.textContent = 'Practicar por mi cuenta →'; pb.onclick = () => resetStudent(''); card.append(pb); };
+    if (!b) { h.querySelector('h2').textContent = 'El docente terminó la clase'; h.querySelector('.sub').textContent = 'Tu bonificación la tiene el docente.'; toPrac(); return; }
     h.querySelector('h2').textContent = b.b > 0 ? '+' + b.b + (b.b === 1 ? ' punto' : ' puntos') + ' al parcial' : 'Sin bonificación esta vez';
     h.querySelector('.sub').textContent = b.b > 0 ? 'Equivale a +0,' + b.b + ' en la nota del parcial.' : 'Sigan practicando: el parcial evalúa estos mismos temas.';
     const big = el('div', 'bono'); big.innerHTML = '<b></b><span>de 4</span>'; big.querySelector('b').textContent = '+' + b.b; card.append(big);
     card.append(dataTable([['Fases terminadas', b.fases + ' de 4'], ['Fase 1 · Fase 2', b.ph[0] + ' % · ' + b.ph[1] + ' %'], ['Fase 3 · Fase 4', b.ph[2] + ' % · ' + b.ph[3] + ' %'], ['Puntaje total', b.pct + ' % del máximo']]));
     card.append(situation('Cómo se calculó', '<p>Cada fase vale lo mismo. En cada una cuenta el porcentaje de puntos que obtuvieron frente al máximo posible; las fases que no alcanzaron valen 0.</p><ul><li>85 % o más: 4 puntos (+0,4)</li><li>65 – 84 %: 3 puntos (+0,3)</li><li>45 – 64 %: 2 puntos (+0,2)</li><li>25 – 44 %: 1 punto (+0,1)</li></ul>'));
     if (b.b > 0 && !renderEnd.done) { renderEnd.done = 1; burst(big); }
+    toPrac();
   }
   function renderP1_(animate){
     if (ENDED) return renderEnd();
@@ -1552,7 +1579,7 @@ svg.molv{position:relative;display:block;width:100%;height:auto}
         const d = el('div', 'pat'); d.innerHTML = molSVG(c.split(''), undefined, true) + '<div class="pn"><b></b><span>En el mercado</span></div>'; d.querySelector('b').textContent = n; pat.append(d);
       });
       card.append(pat);
-      card.append(situation('Reglas', '<ul><li>Cada respuesta correcta suma <b>100 puntos</b>.</li><li>Cada respuesta incorrecta <b>resta 30 puntos</b> y gasta una de sus <b>3 vidas</b> de la fase. El puntaje puede quedar en negativo.</li><li>Después del primer intento fallido pueden pedir una <b>pista por 30 puntos</b>: les dice qué ecuación usar.</li><li>Trabajen con <b>4 cifras significativas</b> en los pasos intermedios y redondeen solo el resultado final.</li>' + (LITE() ? '' : '<li>Al final, el docente revisa sus cálculos y aprueba el paso a la Fase 2.</li>') + '</ul>'));
+      card.append(situation('Reglas', '<ul><li>Cada respuesta correcta suma <b>100 puntos</b>.</li><li>Cada respuesta incorrecta <b>resta 30 puntos</b> y gasta una de sus <b>3 vidas</b> de la fase. El puntaje puede quedar en negativo.</li><li>Después del primer intento fallido pueden pedir una <b>pista por 30 puntos</b>: les dice qué ecuación usar.</li><li>Trabajen con <b>4 cifras significativas</b> en los pasos intermedios y redondeen solo el resultado final.</li>' + (LITE() || PRAC ? '' : '<li>Al final, el docente revisa sus cálculos y aprueba el paso a la Fase 2.</li>') + '</ul>'));
       next('Empezar el diseño →', () => setStep('build'));
     }
 
@@ -2263,7 +2290,8 @@ svg.molv{position:relative;display:block;width:100%;height:auto}
       const p1 = F1 ? F1.pts : 0, p2 = F2 ? F2.pts : 0, p3 = F3 ? F3.pts : 0;
       [['Excipiente', agent], ['Unidades', String(X.units)], ['Osmolaridad', fmt(X.osmL, 4) + ' osmol/L'], ['Δμ del agua', fmt(X.dmu, 2) + ' J/mol'], ['Fase 1 · Fase 2', p1 + ' · ' + p2], ['Fase 3 · Fase 4', p3 + ' · ' + P.pts], ['Puntos totales', String(totalPts())]].forEach(([k, v]) => { const d = el('div'); d.innerHTML = '<span></span><b></b>'; d.querySelector('span').textContent = k; d.querySelector('b').textContent = v; g.append(d); });
       card.append(c);
-      const ab = el('div', 'approved-banner', '<b>¡Terminaron!</b><span>Miren el tablero: el docente mostrará el podio de la clase.</span>'); card.append(ab);
+      const ab = el('div', 'approved-banner', PRAC ? '<b>¡Terminaron la práctica!</b><span>Pueden empezar de nuevo y probar otra molécula, otro excipiente u otro envase.</span>' : '<b>¡Terminaron!</b><span>Miren el tablero: el docente mostrará el podio de la clase.</span>'); card.append(ab);
+      if (PRAC) next('Practicar otra vez →', () => pracEnd(), 'goAgain');
       if (DEMO) next('Ver la bonificación (como si el docente terminara la clase) →', () => { F3 = F3 || null; const me = { f1: F1, f2: F2, f3: F3, f4: P }; ENDED = { bonos: { [myId()]: bono(me, false) } }; renderP1(true); window.scrollTo({ top: 0 }); }, 'goBono');
       if (!P._apBurst) { P._apBurst = 1; burst(ab); }
     }
@@ -2591,8 +2619,9 @@ svg.molv{position:relative;display:block;width:100%;height:auto}
       const p1 = F1 ? F1.pts : 0, p2 = F2 ? F2.pts : 0, p3 = F3 ? F3.pts : 0;
       [['Excipiente', agent], ['Esterilización', ok ? e.ster : 'filtración'], ['Actividad de agua', fmt(X.aw, 4)], ['Contenido del primer lote', fmt(X.lab.pct, 1) + ' %'], ['Fase 1 · Fase 2', p1 + ' · ' + p2], ['Fase 3 · Fase 4', p3 + ' · ' + P.pts], ['Puntos totales', String(totalPts())]].forEach(([k, v]) => { const d = el('div'); d.innerHTML = '<span></span><b></b>'; d.querySelector('span').textContent = k; d.querySelector('b').textContent = v; g.append(d); });
       card.append(c);
-      const ab = el('div', 'approved-banner', '<b>¡Terminaron!</b><span>Miren el tablero: el docente mostrará el podio de la clase.</span>'); card.append(ab);
+      const ab = el('div', 'approved-banner', PRAC ? '<b>¡Terminaron la práctica!</b><span>Pueden empezar de nuevo y probar otra molécula, otro excipiente u otro envase.</span>' : '<b>¡Terminaron!</b><span>Miren el tablero: el docente mostrará el podio de la clase.</span>'); card.append(ab);
       if (!P._apBurst) { P._apBurst = 1; burst(ab); }
+      if (PRAC) next('Practicar otra vez →', () => pracEnd(), 'goAgain');
       if (DEMO) next('Ver la bonificación (como si el docente terminara la clase) →', () => { const me = { f1: F1, f2: F2, f3: F3, f4: P }; ENDED = { bonos: { [myId()]: bono(me, true) } }; renderP1(true); window.scrollTo({ top: 0 }); }, 'goBono');
     }
   }
@@ -2639,6 +2668,7 @@ svg.molv{position:relative;display:block;width:100%;height:auto}
   }
 
   function resetStudent(msg){
+    if (PRAC) { PRAC = false; S.prac = null; $('#pracBar').hidden = true; }
     try { if (unsub) unsub(); if (unsubRoom) unsubRoom(); } catch (e) {}
     unsub = unsubRoom = null; roomData = null; peopleNarrow = false;
     P = P0(); PH = 1; ENDED = null; F1 = null; F2 = null; F3 = null; $('#phase1 .p1top h2').textContent = 'Fase 1 · Diseño y síntesis';
@@ -2651,6 +2681,99 @@ svg.molv{position:relative;display:block;width:100%;height:auto}
     go('stepCode'); if (msg) $('#errCode').textContent = msg;
   }
   $('#resetMe').onclick = () => { $('#menu').hidden = true; if (document.body.classList.contains('teacher')) setAppMode('estudiante'); resetStudent('Vista de estudiante reiniciada. Escribe el código de la clase.'); };
+  /* ================= PRÁCTICA LIBRE (sin código, solo nombre) ================= */
+  const PRAC_COL = 'practica';
+  const pracNameOk = () => ($('#pracName').value || '').trim().replace(/\s+/g, ' ');
+  const syncPrac = () => { $('#goPrac').disabled = pracNameOk().length < 3; $('#errPrac').textContent = ''; };
+  $('#pracName').addEventListener('input', syncPrac);
+  $('#pracName').addEventListener('keydown', e => { if (e.key === 'Enter') $('#goPrac').click(); });
+  $('#goPrac').onclick = () => {
+    const name = pracNameOk();
+    if (name.length < 3) { $('#errPrac').textContent = 'Escribe tu nombre (al menos 3 letras).'; return; }
+    const rnd = Math.random().toString(36).slice(2, 7);
+    S.prac = { name, lite: true, id: slug(name) + '-' + rnd, inicio: new Date().toISOString(), logged: 0 };
+    try { localStorage.setItem(KEY + '-pracnombre', name); } catch (e) {}
+    burst($('#goPrac')); startPractice(false);
+  };
+  try { const n = localStorage.getItem(KEY + '-pracnombre'); if (n) $('#pracName').value = n; } catch (e) {}
+  syncPrac();
+  function startPractice(resume){
+    const pr = S.prac; if (!pr || !pr.name) return;
+    if (!pr.lite) { pracEnd(); return; }   /* la práctica es solo en versión Lite */
+    try { if (unsub) unsub(); if (unsubRoom) unsubRoom(); } catch (e) {}
+    unsub = unsubRoom = null; peopleNarrow = false;
+    PRAC = true;
+    Object.assign(S, { mode: 'individual', solo: pr.name, gname: '', members: [], code: '', joined: false, regId: '', lite: !!pr.lite });
+    if (!resume) { S.f1 = S.f2 = S.f3 = S.f4 = null; P = P0(); P.startedAt = new Date().toISOString(); PH = 1; F1 = F2 = F3 = null; }
+    ENDED = null; VIEW = null;
+    save();
+    const id = myId();
+    roomData = { estado: 'fase1', fase: 1, version: pr.lite ? 'lite' : 'ext', aprobados: { [id]: 'x' }, aprobados2: { [id]: 'x' }, aprobados3: { [id]: 'x' } };
+    $('#pracBar span').textContent = 'Práctica libre · ' + pr.name;
+    $('#pracRestart').textContent = 'Empezar de nuevo'; delete $('#pracRestart').dataset.sure;
+    $('#pracBar').hidden = false;
+    $('#phase1 .p1top h2').textContent = TITLES()[1];
+    startPhase1();
+    if (!resume) pracLog();
+  }
+  function pracEnd(){
+    PRAC = false; roomData = null;
+    const last = S.prac && S.prac.name;
+    S.prac = null; Object.assign(S, { solo: '', mode: '', f1: null, f2: null, f3: null, f4: null });
+    P = P0(); PH = 1; F1 = F2 = F3 = null; ENDED = null; VIEW = null;
+    save();
+    $('#pracBar').hidden = true; document.body.classList.remove('inphase');
+    $('#phase1 .p1top h2').textContent = 'Fase 1 · Diseño y síntesis';
+    if (last) $('#pracName').value = last;
+    syncPrac(); go('stepCode');
+  }
+  $('#pracRestart').onclick = () => {
+    const b = $('#pracRestart');
+    if (!b.dataset.sure) { b.dataset.sure = '1'; b.textContent = '¿Seguro? Se borra el avance. Toca otra vez'; setTimeout(() => { if (b.dataset.sure) { delete b.dataset.sure; b.textContent = 'Empezar de nuevo'; } }, 4000); return; }
+    delete b.dataset.sure; pracEnd();
+  };
+  /* registro mínimo: una escritura al entrar, al empezar cada fase y al terminar */
+  function pracLog(){
+    if (!PRAC || DEMO || !S.prac) return;
+    const done = PH === 4 && P.step === 'fin', stage = done ? 5 : PH;
+    if ((S.prac.logged || 0) >= stage) return;
+    S.prac.logged = stage; save();
+    const pr = S.prac;
+    const body = { nombre: pr.name, version: pr.lite ? 'Lite' : 'Extendida', inicio: pr.inicio, ultimo: new Date().toISOString(), fase: done ? 4 : PH, terminado: done, llego: done ? 'Terminó las 4 fases' : 'Fase ' + PH + ' de 4' };
+    dbReady.then(() => { if (db) return db.doc(PRAC_COL + '/' + pr.id).set(body); }).catch(() => {});
+  }
+  /* lista para el docente: una sola lectura cuando toca el botón */
+  const readOnce = col => new Promise((res, rej) => {
+    if (col.get) { col.get().then(res, rej); return; }
+    let done = false, off = null;
+    off = col.onSnapshot(sn => { if (done) return; done = true; res(sn); setTimeout(() => { try { if (off) off(); } catch (e) {} }, 0); }, rej);
+  });
+  $('#tPracBtn').onclick = async () => {
+    const btn = $('#tPracBtn'), box = $('#tPracList'), note = $('#tPracNote');
+    btn.disabled = true; btn.textContent = 'Cargando…';
+    try {
+      await dbReady;
+      if (!db) throw new Error('sin conexión');
+      const sn = await readOnce(db.collection(PRAC_COL));
+      const rows = (sn.docs || []).map(d => d.data()).filter(r => r && r.nombre).sort((a, b) => String(b.ultimo || '').localeCompare(String(a.ultimo || '')));
+      box.innerHTML = '';
+      if (!rows.length) { box.innerHTML = '<div class="empty">Todavía nadie ha practicado.</div>'; }
+      else {
+        const fin = rows.filter(r => r.terminado).length;
+        note.textContent = rows.length + (rows.length === 1 ? ' registro' : ' registros') + ' · ' + fin + ' terminaron las 4 fases. Cada vez que alguien empieza de nuevo cuenta como un registro nuevo.';
+        const wrap = el('div', 'reswrap'), t = el('table', 'practab');
+        t.innerHTML = '<thead><tr><th>Nombre</th><th>Versión</th><th>Hasta dónde llegó</th><th>Última actividad</th></tr></thead><tbody></tbody>';
+        const tb = t.querySelector('tbody');
+        const when = iso => { try { return new Date(iso).toLocaleString('es-CO', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }); } catch (e) { return ''; } };
+        rows.forEach(r => { const tr = document.createElement('tr'); [r.nombre, r.version || '', r.llego || '', when(r.ultimo)].forEach((v, i) => { const td = document.createElement('td'); td.textContent = v; if (i === 2 && r.terminado) td.className = 'fin'; tr.append(td); }); tb.append(tr); });
+        wrap.append(t); box.append(wrap);
+      }
+      box.hidden = false; btn.textContent = 'Actualizar';
+    } catch (e) { note.textContent = 'No se pudo leer la lista. Revisa la conexión o las reglas de Firestore.'; btn.textContent = 'Ver la lista'; }
+    finally { btn.disabled = false; }
+  };
+  if (S.prac && S.prac.name && !/[?&#]docente\b/i.test(location.search + location.hash)) setTimeout(() => { try { startPractice(true); } catch (e) { try { console.error(e); } catch (_) {} } }, 0);
+
   /* ================= TEACHER MODE (owner only) ================= */
   let isOwner = false, tCode = '', tUnsubRoom = null, tUnsubPeople = null, tRoom = {}, tList = [];
   const STAT2 = { b2: 'F2 · Misión', vol: 'F2 · Volumen', irr: 'F2 · i real', est: 'F2 · Estado del lote', agt: 'F2 · Excipiente', grm: 'F2 · Cantidad', pi: 'F2 · Presión', chk2: 'F2 · Pide revisión' };
@@ -2698,7 +2821,7 @@ svg.molv{position:relative;display:block;width:100%;height:auto}
     stopTeacher(); document.body.classList.remove('teacher'); $('#teacher').hidden = true; $('#modePill').hidden = true;
     try { if (unsub) unsub(); if (unsubRoom) unsubRoom(); } catch (e) {}
     unsub = unsubRoom = null;
-    DEMO = true;
+    DEMO = true; PRAC = false; $('#pracBar').hidden = true;
     Object.assign(S, { code: 'PRUEBA', mode: 'grupo', solo: '', gname: 'Grupo de prueba', members: ['Integrante 1', 'Integrante 2'], joined: false, f1: null, f2: null, f3: null, f4: null });
     P = P0(); P.startedAt = new Date().toISOString(); PH = 1; F1 = F2 = F3 = null; ENDED = null;
     const id = myId(); roomData = { estado: 'fase1', fase: 1, aprobados: { [id]: 'x' }, aprobados2: { [id]: 'x' }, aprobados3: { [id]: 'x' } };
@@ -2722,7 +2845,7 @@ svg.molv{position:relative;display:block;width:100%;height:auto}
     $('#toTeacher').setAttribute('aria-checked', String(t)); $('#toStudent').setAttribute('aria-checked', String(!t));
     $('#teacher').hidden = !t;
     steps.forEach(sid => { if (t) $('#' + sid).hidden = true; });
-    if (t) startTeacher(); else { stopTeacher(); if (S.joined && P.startedAt && roomData && roomData.fase >= 1) startPhase1(); else go(S.code && document.querySelector('#stepLobby').dataset.in ? 'stepLobby' : 'stepCode'); }
+    if (t) startTeacher(); else { stopTeacher(); if (PRAC) startPhase1(); else if (S.joined && P.startedAt && roomData && roomData.fase >= 1) startPhase1(); else go(S.code && document.querySelector('#stepLobby').dataset.in ? 'stepLobby' : 'stepCode'); }
   }
 
   async function startTeacher(){
