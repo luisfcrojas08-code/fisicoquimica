@@ -1350,7 +1350,16 @@ svg.molv{position:relative;display:block;width:100%;height:auto}
     return s + '</svg>';
   }
 
-  const num = v => parseFloat(String(v).replace(/\s/g, '').replace(',', '.'));
+  /* acepta 1125,1 · 1125.1 · 1.125,1 · 1,125.1 (separador de miles en cualquiera de los dos estilos) */
+  const num = v => {
+    let s = String(v).replace(/\s/g, '').replace(/[\u2212\u2013\u2014]/g, '-');
+    const c = (s.match(/,/g) || []).length, d = (s.match(/\./g) || []).length;
+    if (c && d) { const dc = s.lastIndexOf(',') > s.lastIndexOf('.') ? ',' : '.'; s = s.split(dc === ',' ? '.' : ',').join('').replace(dc, '.'); }
+    else if (c > 1) s = s.replace(/,/g, '');
+    else if (d > 1) s = s.replace(/\./g, '');
+    else s = s.replace(',', '.');
+    return parseFloat(s);
+  };
   const fmt = (x, d = 2) => Number(x).toLocaleString('es-CO', { minimumFractionDigits: d, maximumFractionDigits: d });
   const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
 
@@ -1384,7 +1393,9 @@ svg.molv{position:relative;display:block;width:100%;height:auto}
       const v = num(inp.value);
       if (!isFinite(v)) { fb.className = 'fb err'; fb.textContent = 'Escriban un número (con coma o punto).'; return; }
       const t = P.tries[key] || 0;
-      if (Math.abs(v - answer) <= Math.abs(answer) * tol) { P.done[key] = 'ok'; addPts(100, btn); finish('ok'); burst(btn); saveP(); onDone && safe(onDone); return; }
+      const hit = x => Math.abs(x - answer) <= Math.abs(answer) * tol;
+      const mil = /^\d{1,3}[.,]\d{3}$/.test(String(inp.value).replace(/\s/g, '')) ? v * 1000 : NaN;   // 1.125 escrito como mil ciento veinticinco
+      if (hit(v) || hit(mil)) { P.done[key] = 'ok'; addPts(100, btn); finish('ok'); burst(btn); saveP(); onDone && safe(onDone); return; }
       P.tries[key] = t + 1; loseLife(); addPts(-30, btn);
       w.classList.remove('bad'); void w.offsetWidth; w.classList.add('bad');
       if (P.lives <= 0) { P.done[key] = 'rev'; finish('rev'); saveP(); onDone && safe(onDone); return; }
